@@ -1,18 +1,19 @@
 
 name: Build HSCMCQPro WebAuthn Vendor ZIP
 
-on: workflow_dispatch
+'on':
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Install and Package WebAuthn
+    name: Build PHP 8.3 WebAuthn Bundle
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup PHP 8.3
@@ -21,29 +22,64 @@ jobs:
           php-version: '8.3'
           extensions: openssl, mbstring, sodium
           tools: composer:v2
+          coverage: none
+
+      - name: Check PHP environment
+        run: |
+          php -v
+          php -m
+          composer --version
 
       - name: Create Composer project
         run: |
           mkdir -p bundle
           cd bundle
-          composer init --no-interaction --name=hscmcqpro/webauthn-bundle
-          composer require --no-interaction --prefer-dist lbuchs/webauthn
 
-      - name: Verify Composer installation
+          composer init \
+            --no-interaction \
+            --name="hscmcqpro/webauthn-bundle" \
+            --description="HSC MCQ Pro WebAuthn Passkey dependency bundle" \
+            --type="project"
+
+      - name: Install WebAuthn library
         run: |
-          test -f bundle/vendor/autoload.php
+          cd bundle
+          composer require \
+            --no-interaction \
+            --prefer-dist \
+            --no-progress \
+            lbuchs/webauthn
+
+      - name: Validate Composer dependencies
+        run: |
           composer --working-dir=bundle validate --no-check-publish
           composer --working-dir=bundle check-platform-reqs
 
-      - name: Package ZIP
+      - name: Verify required files
+        run: |
+          test -f bundle/vendor/autoload.php
+          test -f bundle/composer.json
+          test -f bundle/composer.lock
+
+          php -r "require 'bundle/vendor/autoload.php'; echo 'Composer autoload OK'.PHP_EOL;"
+
+      - name: Create vendor ZIP
         run: |
           cd bundle
-          zip -r ../HSCMCQPro-WebAuthn-Vendor.zip vendor composer.json composer.lock
+          zip -r ../HSCMCQPro-WebAuthn-Vendor.zip \
+            vendor \
+            composer.json \
+            composer.lock
 
-      - name: Upload Artifact
+      - name: Verify ZIP
+        run: |
+          unzip -t HSCMCQPro-WebAuthn-Vendor.zip
+          unzip -l HSCMCQPro-WebAuthn-Vendor.zip | head -40
+
+      - name: Upload ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
           name: HSCMCQPro-WebAuthn-Vendor
           path: HSCMCQPro-WebAuthn-Vendor.zip
+          if-no-files-found: error
           retention-days: 14
-
