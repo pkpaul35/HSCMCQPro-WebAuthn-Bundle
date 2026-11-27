@@ -1,1 +1,49 @@
 
+name: Build HSCMCQPro WebAuthn Vendor ZIP
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Install and Package WebAuthn
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: openssl, mbstring, sodium
+          tools: composer:v2
+
+      - name: Create Composer project
+        run: |
+          mkdir -p bundle
+          cd bundle
+          composer init --no-interaction --name=hscmcqpro/webauthn-bundle
+          composer require --no-interaction --prefer-dist lbuchs/webauthn
+
+      - name: Verify Composer installation
+        run: |
+          test -f bundle/vendor/autoload.php
+          composer --working-dir=bundle validate --no-check-publish
+          composer --working-dir=bundle check-platform-reqs
+
+      - name: Package ZIP
+        run: |
+          cd bundle
+          zip -r ../HSCMCQPro-WebAuthn-Vendor.zip vendor composer.json composer.lock
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HSCMCQPro-WebAuthn-Vendor
+          path: HSCMCQPro-WebAuthn-Vendor.zip
+          retention-days: 14
+
